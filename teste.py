@@ -1,1 +1,4 @@
-oi = 0
+oi = False
+
+if not oi:
+    print('nao oi')
