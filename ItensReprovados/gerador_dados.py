@@ -1,4 +1,4 @@
-from ReprovaPorInspetor.relatorio_sivwin import RelatoriosSivWin
+from ItensReprovados.relatorio_sivwin import RelatoriosSivWin
 import pandas as pd
 import streamlit as st
 

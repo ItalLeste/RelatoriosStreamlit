@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(layout="wide", page_title="Relatórios Ital Leste", page_icon=":Book:")
 
 # Páginas de relatórios
-reprovas_x_inspetor = st.Page('ReprovaPorInspetor/reprovas_dashboard.py', title='Reprovas por Inspetor')
+reprovas_x_inspetor = st.Page('ItensReprovados/reprovas_dashboard.py', title='Reprovas por Inspetor')
 qtd_inspecoes = st.Page('EstatisticasInspecoes\quantidades_dashboard.py', title='Estatísticas de Inspecoes')
 
 

@@ -1,4 +1,4 @@
-from ReprovaPorInspetor.gerador_dados import carregar_dados
+from ItensReprovados.gerador_dados import carregar_dados
 import pandas as pd
 import streamlit as st
 from datetime import datetime, timedelta

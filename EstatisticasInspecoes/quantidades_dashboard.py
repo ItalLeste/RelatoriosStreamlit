@@ -5,6 +5,8 @@ import plotly.express as px
 from datetime import datetime, timedelta
 
 def carregar_states():
+    if not 'df_inmetro' in st.session_state:    
+        st.session_state['df_inmetro'] = None
     if not 'df_inspecoes_escopo' in st.session_state:  
         st.session_state['df_inspecoes_escopo'] = None
     if not 'df_inspecoes_tipo_veiculo' in st.session_state:
@@ -17,115 +19,88 @@ def imprimir_relatorio():
 
 carregar_states()
 
+def criar_grafico_escopo(df_dict, titulo):
+    df = pd.DataFrame.from_dict(df_dict, orient='index', columns=['Aprovado', 'Reprovado', 'Total'])
+    df.index.name = 'Período'
+    df = df.reset_index()
+    df['Período'] = pd.to_datetime(df['Período'], format='%m/%Y')
+    df = df.sort_values('Período')
+    df['Período'] = df['Período'].dt.strftime('%m/%Y')
+    
+    fig = px.line(df, x='Período', y=['Aprovado', 'Reprovado', 'Total'],
+                  markers=True, labels={'value': 'Quantidade', 'variable': 'Situação'},
+                  color_discrete_sequence=['green', 'red', 'blue'])
+    
+    with st.container(border=True):
+        st.write(titulo)
+        st.plotly_chart(fig, use_container_width=True)
+
+def criar_grafico_pizza(df, titulo):
+    aprovados = df[df['SituacaoInspecao'] == 'Aprovado'].shape[0]
+    reprovados = df[df['SituacaoInspecao'] == 'Reprovado'].shape[0]
+    total = aprovados + reprovados
+
+    labels = ['Aprovado', 'Reprovado']
+    values = [aprovados, reprovados]
+
+    fig = px.pie(df, values=values, names=labels, title=titulo,
+                  color_discrete_sequence=['green', 'red'], labels={'value': 'Quantidade', 'variable': 'Situação'})
+
+    with st.container(border=True):
+        st.write(titulo)
+        st.plotly_chart(fig, use_container_width=True)
+
+
 @st.fragment
 def analisar_escopo():
     with st.container(border=True):
         st.subheader('Overview:')
         st.write(f'Periodo analisado: {data_inicio.strftime("%d/%m/%Y")} a {data_fim.strftime("%d/%m/%Y")}')
 
+        df = st.session_state['df_inmetro']
         df_inspecoes_escopo = st.session_state['df_inspecoes_escopo']
-        aprovado_sinistro = 0
-        reprovado_sinistro = 0
-        total_sinistro = 0
+        df_tipos = {'SINISTRO': {}, 'GNV': {}, 'MODIFICADO': {}}
 
-        aprovado_gnv = 0
-        reprovado_gnv = 0
-        total_gnv = 0
-
-        aprovado_modificado = 0
-        reprovado_modificado = 0
-        total_modificado = 0
-
-        df_sinistro = {}
-        df_gnv = {}
-        df_modificado = {}
-
+        # Organizar dados dataframe inseções escopo.
         for k, v in df_inspecoes_escopo.items():
             for k2, v2 in v.items():
-                periodo = str(k2) + '/' + str(k)
+                periodo = f'{k2}/{k}'
+                for tipo in df_tipos:
+                    df_tipos[tipo][periodo] = v2[tipo]
 
-                aprovado_sinistro = v2['SINISTRO'][0]
-                reprovado_sinistro = v2['SINISTRO'][1]
-                total_sinistro = v2['SINISTRO'][2]
+    # st.dataframe(df)
 
-                aprovado_gnv = v2['GNV'][0]                
-                reprovado_gnv = v2['GNV'][1]
-                total_gnv = v2['GNV'][2]
-
-                aprovado_modificado = v2['MODIFICADO'][0]                
-                reprovado_modificado = v2['MODIFICADO'][1]
-                total_modificado = v2['MODIFICADO'][2]
-
-                df_sinistro[periodo] = [aprovado_sinistro, reprovado_sinistro, total_sinistro]
-                df_gnv[periodo] = [aprovado_gnv, reprovado_gnv, total_gnv]  
-                df_modificado[periodo] = [aprovado_modificado, reprovado_modificado, total_modificado]
-
-        # Gráfico - Total Inspeções Escopo
-        # Sinistro
-        with st.container(border=True):
-            st.write('Total Inspeções: Sinitro')
-
-            # Transforma o dicionário em DataFrame
-            df = pd.DataFrame.from_dict(df_sinistro, orient='index', columns=['Aprovado', 'Reprovado', 'Total'])
-            df.index.name = 'Período'
-            df = df.reset_index()
-
-            # Ordena os períodos corretamente
-            df['Período'] = pd.to_datetime(df['Período'], format='%m/%Y')
-            df = df.sort_values('Período')
-            df['Período'] = df['Período'].dt.strftime('%m/%Y')  # opcional: volta para string no eixo X
-
-            # Cria o gráfico
-            fig = px.line(df, x='Período', y=['Aprovado', 'Reprovado', 'Total'],
-                        markers=True, labels={'value': 'Quantidade', 'variable': 'Situação'},
-                        color_discrete_sequence=['green', 'red', 'blue'],)
-
-            # Exibe no Streamlit
+    # Gráficos
+    # Total Inspeções Periodo
+    with st.container(border=True):
+        st.subheader('Total Inspeções Periodo')
+        col1, col2 = st.columns(2)
+        with col1:
+            # Total Inspeções Resultado.
+            aprovados = df[df['SituacaoInspecao'] == 'Aprovado'].shape[0]
+            reprovados = df[df['SituacaoInspecao'] == 'Reprovado'].shape[0]
+            labels = ['Aprovado', 'Reprovado']
+            values = [aprovados, reprovados]
+            fig = px.pie(df, values=values, names=labels, color_discrete_sequence=['green', 'red'], labels={'value': 'Quantidade', 'variable': 'Situação'})
+    
+            st.write('Total Inspeções: Resultado')
+            st.plotly_chart(fig, use_container_width=True)
+    
+        with col2:
+            # Total Inspeções Escopo.
+            sinistro = df[df['TipoLaudo'] == 'SINISTRADO'].shape[0]
+            gnv = df[df['TipoLaudo'] == 'GNV - PERIÓDICA'].shape[0]
+            modificado = df[df['TipoLaudo'] == 'NORMAL'].shape[0]
+            labels = ['Sinistro', 'GNV', 'Modificado']
+            values = [sinistro, gnv, modificado]
+            fig = px.pie(df, values=values, names=labels, color_discrete_sequence=['green', 'red', 'blue'], labels={'value': 'Quantidade', 'variable': 'Situação'})
+    
+            st.write('Total Inspeções: Escopo')
             st.plotly_chart(fig, use_container_width=True)
 
-        # GNV
-        with st.container(border=True):
-            st.write('Total Inspeções: GNV')
-
-            # Transforma o dicionário em DataFrame
-            df = pd.DataFrame.from_dict(df_gnv, orient='index', columns=['Aprovado', 'Reprovado', 'Total'])
-            df.index.name = 'Período'
-            df = df.reset_index()
-
-            # Ordena os períodos corretamente
-            df['Período'] = pd.to_datetime(df['Período'], format='%m/%Y')
-            df = df.sort_values('Período')
-            df['Período'] = df['Período'].dt.strftime('%m/%Y')  # opcional: volta para string no eixo X
-
-            # Cria o gráfico
-            fig = px.line(df, x='Período', y=['Aprovado', 'Reprovado', 'Total'],
-                        markers=True, labels={'value': 'Quantidade', 'variable': 'Situação'},
-                        color_discrete_sequence=['green', 'red', 'blue'],)
-
-            # Exibe no Streamlit
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Modificado    
-        with st.container(border=True):
-            st.write('Total Inspeções: Modificados')
-
-            # Transforma o dicionário em DataFrame
-            df = pd.DataFrame.from_dict(df_modificado, orient='index', columns=['Aprovado', 'Reprovado', 'Total'])
-            df.index.name = 'Período'
-            df = df.reset_index()
-
-            # Ordena os períodos corretamente
-            df['Período'] = pd.to_datetime(df['Período'], format='%m/%Y')
-            df = df.sort_values('Período')
-            df['Período'] = df['Período'].dt.strftime('%m/%Y')  # opcional: volta para string no eixo X
-
-            # Cria o gráfico
-            fig = px.line(df, x='Período', y=['Aprovado', 'Reprovado', 'Total'],
-                        markers=True, labels={'value': 'Quantidade', 'variable': 'Situação'},
-                        color_discrete_sequence=['green', 'red', 'blue'],)
-
-            # Exibe no Streamlit
-            st.plotly_chart(fig, use_container_width=True)
+    criar_grafico_escopo(df_tipos['SINISTRO'], 'Total Inspeções: Sinistro')
+    criar_grafico_escopo(df_tipos['GNV'], 'Total Inspeções: GNV')
+    criar_grafico_escopo(df_tipos['MODIFICADO'], 'Total Inspeções: Modificados')
 
 @st.fragment
 def analisar_veiculo():
@@ -154,7 +129,7 @@ with st.container(border=True):
         if st.button('Consultar'):
             data_inicio = data_inicio.strftime('%Y-%m-%d')
             data_fim = data_fim.strftime('%Y-%m-%d')
-            st.session_state['df_inspecoes_escopo'], st.session_state['df_inspecoes_tipo_veiculo'], = carregar_dados(data_inicio, data_fim) # Armazena os dataframes na sessão.
+            st.session_state['df_inmetro'],st.session_state['df_inspecoes_escopo'], st.session_state['df_inspecoes_tipo_veiculo'], = carregar_dados(data_inicio, data_fim) # Armazena os dataframes na sessão.
             # st.session_state['download'] = st.session_state['df_inspecoes_escopo'].to_csv(index=False)
 
             
